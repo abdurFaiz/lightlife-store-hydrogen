@@ -1,5 +1,4 @@
-import {createContext, useContext, useEffect, useState} from 'react';
-import {useId} from 'react';
+import {createContext, useContext, useEffect, useState, useId } from 'react';
 
 /**
  * A side bar component with Overlay

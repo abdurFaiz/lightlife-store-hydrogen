@@ -11,9 +11,9 @@ import {
 } from 'react-router';
 import favicon from '~/assets/favicon.svg';
 import {FOOTER_QUERY, HEADER_QUERY} from '~/lib/fragments';
-import resetStyles from '~/styles/reset.css?url';
 import appStyles from '~/styles/app.css?url';
 import {PageLayout} from './components/PageLayout';
+import tiemposHeadlineLight from '~/assets/fonts/TiemposHeadline-Light.otf';
 
 /**
  * This is important to avoid re-fetching root queries on sub-navigations
@@ -55,6 +55,22 @@ export function links() {
       href: 'https://shop.app',
     },
     {rel: 'icon', type: 'image/svg+xml', href: favicon},
+    {rel: 'preconnect', href: 'https://fonts.googleapis.com'},
+    {
+      rel: 'preconnect',
+      href: 'https://fonts.gstatic.com',
+      crossOrigin: 'anonymous',
+    },
+    {
+      rel: 'stylesheet',
+      href: 'https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,100..1000&display=swap',
+    },
+    {
+      rel: 'preload',
+      as: 'font',
+      href: tiemposHeadlineLight,
+      crossOrigin: 'anonymous',
+    },
   ];
 }
 
@@ -150,8 +166,16 @@ export function Layout({children}) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1" />
-        <link rel="stylesheet" href={resetStyles}></link>
         <link rel="stylesheet" href={appStyles}></link>
+        <style>{`
+          @font-face {
+            font-family: 'Tiempos Headline';
+            src: url('${tiemposHeadlineLight}') format('opentype');
+            font-weight: 300;
+            font-style: normal;
+            font-display: swap;
+          }
+        `}</style>
         <Meta />
         <Links />
       </head>

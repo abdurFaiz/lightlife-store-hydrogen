@@ -1,26 +1,73 @@
-import {Suspense} from 'react';
+import {Suspense, useState, useEffect} from 'react';
 import {Await, NavLink, useAsyncValue} from 'react-router';
 import {useAnalytics, useOptimisticCart} from '@shopify/hydrogen';
 import {useAside} from '~/components/Aside';
+import {motion, useScroll, useMotionValueEvent} from 'framer-motion';
 
 /**
  * @param {HeaderProps}
  */
 export function Header({header, isLoggedIn, cart, publicStoreDomain}) {
   const {shop, menu} = header;
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [hidden, setHidden] = useState(false);
+  const {scrollY} = useScroll();
+
+  useMotionValueEvent(scrollY, 'change', (latest) => {
+    const previous = scrollY.getPrevious();
+
+    // Check if scrolled past threshold (50px)
+    if (latest > 50) {
+      setIsScrolled(true);
+    } else {
+      setIsScrolled(false);
+    }
+
+    // Hide/show based on scroll direction
+    if (latest > previous && latest > 150) {
+      setHidden(true);
+    } else {
+      setHidden(false);
+    }
+  });
+
   return (
-    <header className="header">
-      <NavLink prefetch="intent" to="/" style={activeLinkStyle} end>
-        <strong>{shop.name}</strong>
-      </NavLink>
+    <motion.header
+      variants={{
+        visible: {y: 0},
+        hidden: {y: '-100%'},
+      }}
+      animate={hidden ? 'hidden' : 'visible'}
+      transition={{duration: 0.35, ease: 'easeInOut'}}
+      className={`flex items-center justify-between h-16 px-6 fixed top-0 left-0 right-0 z-50 transition-colors duration-300 ${
+        isScrolled
+          ? 'bg-white border-b border-gray-100'
+          : 'bg-transparent'
+      }`}
+    >
+      {/* Desktop Nav */}
       <HeaderMenu
         menu={menu}
         viewport="desktop"
         primaryDomainUrl={header.shop.primaryDomain.url}
         publicStoreDomain={publicStoreDomain}
+        isScrolled={isScrolled}
       />
-      <HeaderCtas isLoggedIn={isLoggedIn} cart={cart} />
-    </header>
+
+      {/* Logo */}
+      <NavLink prefetch="intent" to="/" end>
+        <strong
+          className={`text-2xl font-display tracking-tight transition-colors duration-300 ${
+            isScrolled ? 'text-black' : 'text-white'
+          }`}
+        >
+          {shop.name}
+        </strong>
+      </NavLink>
+
+      {/* CTAs */}
+      <HeaderCtas isLoggedIn={isLoggedIn} cart={cart} isScrolled={isScrolled} />
+    </motion.header>
   );
 }
 
@@ -30,6 +77,7 @@ export function Header({header, isLoggedIn, cart, publicStoreDomain}) {
  *   primaryDomainUrl: HeaderProps['header']['shop']['primaryDomain']['url'];
  *   viewport: Viewport;
  *   publicStoreDomain: HeaderProps['publicStoreDomain'];
+ *   isScrolled?: boolean;
  * }}
  */
 export function HeaderMenu({
@@ -37,41 +85,77 @@ export function HeaderMenu({
   primaryDomainUrl,
   viewport,
   publicStoreDomain,
+  isScrolled = false,
 }) {
-  const className = `header-menu-${viewport}`;
   const {close} = useAside();
 
-  return (
-    <nav className={className} role="navigation">
-      {viewport === 'mobile' && (
+  if (viewport === 'mobile') {
+    return (
+      <nav className="flex flex-col gap-4 p-4 md:hidden" role="navigation">
         <NavLink
           end
           onClick={close}
           prefetch="intent"
-          style={activeLinkStyle}
+          className={({isActive}) =>
+            `text-base font-display font-bold ${isActive ? 'text-amber-700 font-bold' : 'text-black'}`
+          }
           to="/"
         >
           Home
         </NavLink>
-      )}
+        {(menu || FALLBACK_HEADER_MENU).items.map((item) => {
+          if (!item.url) return null;
+          const url =
+            item.url.includes('myshopify.com') ||
+            item.url.includes(publicStoreDomain) ||
+            item.url.includes(primaryDomainUrl)
+              ? new URL(item.url).pathname
+              : item.url;
+          return (
+            <NavLink
+              className={({isActive}) =>
+                `text-base font-display font-bold ${isActive ? 'text-amber-700 font-bold' : 'text-black'}`
+              }
+              end
+              key={item.id}
+              onClick={close}
+              prefetch="intent"
+              to={url}
+            >
+              {item.title}
+            </NavLink>
+          );
+        })}
+      </nav>
+    );
+  }
+
+  return (
+    <nav className="hidden md:flex items-center gap-8" role="navigation">
       {(menu || FALLBACK_HEADER_MENU).items.map((item) => {
         if (!item.url) return null;
-
-        // if the url is internal, we strip the domain
         const url =
           item.url.includes('myshopify.com') ||
           item.url.includes(publicStoreDomain) ||
           item.url.includes(primaryDomainUrl)
             ? new URL(item.url).pathname
             : item.url;
+
         return (
           <NavLink
-            className="header-menu-item"
+            className={({isActive}) =>
+              `text-md font-display font-light hover:text-amber-700 transition-colors ${
+                isActive
+                  ? 'text-amber-700'
+                  : isScrolled
+                    ? 'text-black'
+                    : 'text-white'
+              }`
+            }
             end
             key={item.id}
             onClick={close}
             prefetch="intent"
-            style={activeLinkStyle}
             to={url}
           >
             {item.title}
@@ -83,89 +167,121 @@ export function HeaderMenu({
 }
 
 /**
- * @param {Pick<HeaderProps, 'isLoggedIn' | 'cart'>}
+ * @param {Pick<HeaderProps, 'isLoggedIn' | 'cart'> & {isScrolled: boolean}}
  */
-function HeaderCtas({isLoggedIn, cart}) {
+function HeaderCtas({isLoggedIn, cart, isScrolled}) {
   return (
-    <nav className="header-ctas" role="navigation">
-      <HeaderMenuMobileToggle />
-      <NavLink prefetch="intent" to="/account" style={activeLinkStyle}>
+    <nav className="flex items-center gap-5" role="navigation">
+      <HeaderMenuMobileToggle isScrolled={isScrolled} />
+      <NavLink
+        prefetch="intent"
+        to="/account"
+        className={({isActive}) =>
+          `hidden md:block text-md font-display font-light hover:text-amber-700 transition-colors ${
+            isActive
+              ? 'text-amber-700'
+              : isScrolled
+                ? 'text-black'
+                : 'text-white'
+          }`
+        }
+      >
         <Suspense fallback="Sign in">
           <Await resolve={isLoggedIn} errorElement="Sign in">
             {(isLoggedIn) => (isLoggedIn ? 'Account' : 'Sign in')}
           </Await>
         </Suspense>
       </NavLink>
-      <SearchToggle />
-      <CartToggle cart={cart} />
+      <SearchToggle isScrolled={isScrolled} />
+      <CartToggle cart={cart} isScrolled={isScrolled} />
     </nav>
   );
 }
 
-function HeaderMenuMobileToggle() {
+function HeaderMenuMobileToggle({isScrolled}) {
   const {open} = useAside();
   return (
     <button
-      className="header-menu-mobile-toggle reset"
+      className={`md:hidden text-xl leading-none transition-colors ${
+        isScrolled ? 'text-black' : 'text-white'
+      }`}
       onClick={() => open('mobile')}
     >
-      <h3>☰</h3>
+      ☰
     </button>
   );
 }
 
-function SearchToggle() {
+function SearchToggle({isScrolled}) {
   const {open} = useAside();
   return (
-    <button className="reset" onClick={() => open('search')}>
+    <button
+      className={`text-md font-display hover:text-amber-700 transition-colors ${
+        isScrolled ? 'text-black' : 'text-white'
+      }`}
+      onClick={() => open('search')}
+    >
       Search
     </button>
   );
 }
 
 /**
- * @param {{count: number}}
+ * @param {{count: number; isScrolled: boolean}}
  */
-function CartBadge({count}) {
+function CartBadge({count, isScrolled}) {
   const {open} = useAside();
   const {publish, shop, cart, prevCart} = useAnalytics();
 
   return (
-    <a
-      href="/cart"
-      onClick={(e) => {
-        e.preventDefault();
-        open('cart');
-        publish('cart_viewed', {
-          cart,
-          prevCart,
-          shop,
-          url: window.location.href || '',
-        });
-      }}
-    >
-      Cart <span aria-label={`(items: ${count})`}>{count}</span>
-    </a>
+    <div className="flex flex-row gap-0.5 items-center">
+      <a
+        href="/cart"
+        className={`text-md font-display hover:text-amber-700 transition-colors ${
+          isScrolled ? 'text-black' : 'text-white'
+        }`}
+        onClick={(e) => {
+          e.preventDefault();
+          open('cart');
+          publish('cart_viewed', {
+            cart,
+            prevCart,
+            shop,
+            url: window.location.href || '',
+          });
+        }}
+      >
+        Cart
+      </a>
+      <span
+        className={`pb-5 transition-colors ${
+          isScrolled ? 'text-black' : 'text-white'
+        }`}
+        aria-label={`(items: ${count})`}
+      >
+        {count}
+      </span>
+    </div>
   );
 }
 
 /**
- * @param {Pick<HeaderProps, 'cart'>}
+ * @param {Pick<HeaderProps, 'cart'> & {isScrolled: boolean}}
  */
-function CartToggle({cart}) {
+function CartToggle({cart, isScrolled}) {
   return (
-    <Suspense fallback={<CartBadge count={0} />}>
+    <Suspense fallback={<CartBadge count={0} isScrolled={isScrolled} />}>
       <Await resolve={cart}>
-        <CartBanner />
+        <CartBanner isScrolled={isScrolled} />
       </Await>
     </Suspense>
   );
 }
 
-function CartBanner() {
+function CartBanner({isScrolled}) {
   const originalCart = useAsyncValue();
   const cart = useOptimisticCart(originalCart);
-  return <CartBadge count={cart?.totalQuantity ?? 0} />;
+  return <CartBadge count={cart?.totalQuantity ?? 0} isScrolled={isScrolled} />;
 }
 
 const FALLBACK_HEADER_MENU = {
@@ -218,8 +334,8 @@ const FALLBACK_HEADER_MENU = {
  */
 function activeLinkStyle({isActive, isPending}) {
   return {
-    fontWeight: isActive ? 'bold' : undefined,
-    color: isPending ? 'grey' : 'black',
+    fontWeight: isActive ? 'semibold' : undefined,
+    color: isPending ? 'amber-700' : undefined,
   };
 }
 

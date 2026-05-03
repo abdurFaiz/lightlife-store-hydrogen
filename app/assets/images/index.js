@@ -1,0 +1,9 @@
+export {default as HeroImageDark} from './hero-dark-1.webp';
+export {default as HeroImageDark2} from './hero-dark-2.webp';
+export {default as HeroImageDark3} from './hero-dark-3.webp';
+export {default as HeroImageLight} from './hero-light-1.webp';
+export {default as HeroImageLight2} from './hero-light-2.webp';
+export {default as HeroImageLight3} from './hero-light-3.webp';
+export {default as HeroProduct1} from './product-1.webp';
+export {default as HeroProduct2} from './product-2.webp';
+export {default as HeroProduct3} from './product-3.webp';
